@@ -1,1 +1,4 @@
 docs
+test_output
+**/*.pyc
+__pycache__

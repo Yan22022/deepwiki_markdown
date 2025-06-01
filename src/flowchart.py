@@ -7,11 +7,24 @@ class FlowchartProcessor:
     
     @staticmethod
     def extract_flowcharts(html_content):
-        """从HTML内容中提取所有流程图"""
+        """从HTML内容中提取所有流程图(去重)"""
         flowcharts = []
+        
+        if not html_content:
+            print("警告: HTML内容为空")
+            return flowcharts
+            
         for pattern in FLOWCHART_PATTERNS:
-            matches = re.findall(pattern, html_content)
-            flowcharts.extend(matches)
+            for match in re.finditer(pattern, html_content):
+                content = match.group(1) if len(match.groups()) > 0 else match.group(0)
+                # 检查是否已经匹配过这个位置
+                content = content.replace("\\u003cbr\\u003e", "<\n>")  # 替换HTML转义的换行符
+                content = content.replace("\\u003e", ">")  # 替换HTML转义的换行符
+                content = content.replace("\\u003c", "<")  # 替换HTML转义的换行符
+                content = content.replace('\\"', '"')  # 移除转义的引号
+                content = content.replace("\\n", "\n")
+                flowcharts.append(content.strip())
+        
         return flowcharts
 
     @staticmethod

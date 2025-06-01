@@ -23,4 +23,13 @@ FLOWCHART_PATTERNS = [
     # Markdown风格的代码块
     r"```mermaid\s*(.*?)\s*```",
     r"```flowchart\s*(.*?)\s*```",
+    # 新增的通用匹配模式
+    r'(?s)<svg[^>]*data-type="flowchart"[^>]*>(.*?)</svg>',
+    r'(?s)<img[^>]*alt="[^"]*flowchart[^"]*"[^>]*>',
+    r'(?s)<img[^>]*src="[^"]*flowchart[^"]*"[^>]*>',
+    r'(?s)<object[^>]*data="[^"]*\.flowchart[^"]*"[^>]*>',
+    # 更宽松的匹配模式
+    r'(?s)<div[^>]*id="[^"]*flow[^"]*"[^>]*>(.*?)</div>',
+    r'(?s)<div[^>]*id="[^"]*chart[^"]*"[^>]*>(.*?)</div>',
+    r'(?s)<div[^>]*id="[^"]*diagram[^"]*"[^>]*>(.*?)</div>',
 ]

@@ -32,6 +32,7 @@ class DeepWikiCrawler:
         self.url_utils = UrlUtils(base_url)
         self.file_utils = FileUtils()
         self.flowchart_processor = FlowchartProcessor()
+        self.url_to_file_mapping = {}
 
     def crawl(self, url=None, current_depth=0):
         """
@@ -60,7 +61,8 @@ class DeepWikiCrawler:
             # 保存Markdown文件
             filename = self.url_utils.url_to_filename(url)
             output_path = os.path.join(self.output_dir, filename)
-            self.file_utils.save_markdown(markdown_content, output_path)
+            self.url_to_file_mapping[url] = output_path
+            #self.file_utils.save_markdown(markdown_content, output_path)
             
             # 爬取内部链接
             if current_depth < self.max_depth:
@@ -68,9 +70,18 @@ class DeepWikiCrawler:
                 for link in internal_links:
                     time.sleep(self.delay)  # 礼貌爬取
                     self.crawl(link, current_depth + 1)
-                    
         except Exception as e:
             print(f"Error crawling {url}: {str(e)}")
+
+    def save_url_mapping(self):
+        """保存URL到文件的映射关系"""
+        mapping_file = os.path.join(self.output_dir, "url_mapping.json")
+        import json
+        try:
+            with open(mapping_file, "w", encoding="utf-8") as f:
+                json.dump(self.url_to_file_mapping, f, indent=2)
+        except IOError as e:
+            print(f"Error saving URL mapping: {e}")
 
     def fetch_url(self, url):
         """获取URL内容"""
@@ -91,7 +102,6 @@ class DeepWikiCrawler:
         """从HTML内容中提取内部链接"""
         soup = BeautifulSoup(html_content, "html.parser")
         links = set()
-        
         for a in soup.find_all("a", href=True):
             href = a["href"].strip()
             if not href or href.startswith("#"):
@@ -104,40 +114,90 @@ class DeepWikiCrawler:
         return links
 
     def convert_to_markdown(self, html_content, url):
-        """将HTML转换为Markdown"""
-        # 处理流程图
-        html_content = self.flowchart_processor.replace_flowcharts_with_mermaid(html_content)
+        """将HTML内容转换为Markdown格式"""
+        import html2text
+        from datetime import datetime
+       
+        # 处理HTML内容，替换流程图占位符
+        # 先转换HTML为Markdown
+        h = html2text.HTML2Text()
+        h.body_width = 0
+        h.ignore_links = False
+        h.ignore_images = False
         
-        # 使用BeautifulSoup解析HTML
-        soup = BeautifulSoup(html_content, "html.parser")
+        # 表格处理配置
+        h.bypass_tables = False
+        # h.single_line_break = True
+        # h.ignore_emphasis = True  
+        # h.protect_links = True
+        h.mark_code = True
+        # h.table_style = 'full'  # 完整表格样式
+        # h.table_cell_separator = '|'  # 单元格分隔符
+        # h.table_row_separator = '-'  # 行分隔符
+        # h.table_add_trailing_newline = True  # 表格后添加换行
         
-        # 提取标题
-        title = soup.title.string if soup.title else urlparse(url).path
+        # 转换为Markdown
+        markdown_content = h.handle(html_content)
+
+        # 添加元数据
+        metadata = f"""---
+source: {url}
+crawled_at: {datetime.now().isoformat()}
+---
+
+"""
+        content_with_metadata = metadata + markdown_content
         
-        # 构建Markdown内容
-        markdown = f"# {title}\n\n"
-        markdown += f"**URL**: [{url}]({url})\n\n"
+        # 保存文件
+        filename = self.url_utils.url_to_filename(url)
+        filepath = os.path.join(self.output_dir, filename)
         
-        # 添加主要内容
-        for element in soup.body.find_all(recursive=True):
-            if element.name == "h1":
-                markdown += f"\n# {element.get_text()}\n\n"
-            elif element.name == "h2":
-                markdown += f"\n## {element.get_text()}\n\n"
-            elif element.name == "p":
-                markdown += f"{element.get_text()}\n\n"
-            elif element.name == "a":
-                href = element.get("href", "")
-                if href.startswith("http"):
-                    markdown += f"[{element.get_text()}]({href}) "
-                else:
-                    markdown += f"[{element.get_text()}]({urljoin(url, href)}) "
-            elif element.name == "img":
-                src = element.get("src", "")
-                alt = element.get("alt", "")
-                if src.startswith("http"):
-                    markdown += f"![{alt}]({src})\n\n"
-                else:
-                    markdown += f"![{alt}]({urljoin(url, src)})\n\n"
+        try:
+            with open(filepath, "w", encoding="utf-8") as f:
+                f.write(content_with_metadata)
+            print(f"Saved {url} to {filepath}")
+            return filename
+        except IOError as e:
+            print(f"Error saving file {filepath}: {e}")
+            return None
+
+    def run(self):
+        """开始爬取"""
+        self.crawl()
+        self.save_url_mapping()
+        self.dump_flowcharts(self.base_url)
+    
+    def dump_flowcharts(self, url):
+        html_content = self.fetch_url(url)
+        """将所有提取的流程图保存到单独的文件"""
+        with open(os.path.join(self.output_dir, "flowchart.md"), "w", encoding="utf-8") as f:
+            #r"```mermaid\s*(.*?)\s*```",
+            for chart in self.flowchart_processor.extract_flowcharts(html_content):
+                f.write(f"```mermaid\n" + chart + "\n```")
+                f.write("\n\n")
+         # mermaid_code_pattern = f'''<pre class="px-2 py-1.5 has-[code]:rounded-md has-[code]:!bg-[#e5e5e5] has-[div]:bg-transparent has-[div]:!p-0 has-[code]:text-stone-900 dark:has-[code]:!bg-[#242424] has-[code]:dark:text-white [&amp;_code]:block [&amp;_code]:border-none [&amp;_code]:bg-transparent [&amp;_code]:p-0"><!--$!--><template data-dgst="BAILOUT_TO_CLIENT_SIDE_RENDERING"></template><!--/$--></pre>'''
+        # with open("flowchart.txt", "w", encoding="utf-8") as f:
+        #     f.write(html_content)
+        # 提取流程图并记录位置
+        # flowcharts = self.flowchart_processor.extract_flowcharts(html_content)
+        # flowchart_positions = []
+        # processed_html = html_content
+        # 记录每个流程图在HTML中的位置
+        # for chart in flowcharts:
+        #     pos = html_content.find(chart)
+        #     if pos >= 0:
+        #         flowchart_positions.append((pos, chart))
+        # # 使用特殊文本标记替换流程图
+        # for i, (pos, chart) in enumerate(flowchart_positions):
+        #     # 使用独特的UUID作为占位符
+        #     placeholder = f"\"@@@FLOWCHART_{i}_@@@\""
+        #     processed_html = processed_html.replace(mermaid_code_pattern, placeholder, 1)
+                # with open("flowchart_parsed.txt", "w", encoding="utf-8") as f:
+        #     f.write(markdown_content)
         
-        return markdown
+        # # 将文本占位符替换回Mermaid流程图
+        # for i, (pos, chart) in enumerate(flowchart_positions):
+        #     placeholder = f"@@@FLOWCHART_{i}_@@@"
+        #     mermaid_chart = f"\n```mermaid\n{chart}\n```\n"
+        #     markdown_content = markdown_content.replace(placeholder, mermaid_chart, 1)
+        

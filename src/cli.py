@@ -34,7 +34,7 @@ def main():
         timeout=args.timeout,
         delay=args.sleep
     )
-    crawler.crawl()
+    crawler.run()    
 
 
 if __name__ == "__main__":
