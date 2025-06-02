@@ -33,6 +33,8 @@ class DeepWikiCrawler:
         self.file_utils = FileUtils()
         self.flowchart_processor = FlowchartProcessor()
         self.url_to_file_mapping = {}
+        # Ensure output directory exists
+        os.makedirs(self.output_dir, exist_ok=True)
 
     def crawl(self, url=None, current_depth=0):
         """
@@ -58,7 +60,6 @@ class DeepWikiCrawler:
             # 处理流程图并转换为Markdown
             markdown_content = self.convert_to_markdown(html_content, url)
             
-            # 保存Markdown文件
             filename = self.url_utils.url_to_filename(url)
             output_path = os.path.join(self.output_dir, filename)
             self.url_to_file_mapping[url] = output_path
