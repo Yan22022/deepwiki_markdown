@@ -1,4 +1,4 @@
 docs
-test_output
+output
 **/*.pyc
 __pycache__
