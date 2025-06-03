@@ -6,9 +6,5 @@
 #          python src/cli.py https://deepwiki.com/qemu/qemu -d 0
 
 # echo $1
-if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 <DeepWiki URL> -d <depth>"
-    exit 1
-fi
 
-python src/cli.py $1 -d $2
+python src/cli.py $1
