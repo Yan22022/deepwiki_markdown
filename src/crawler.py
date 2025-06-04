@@ -1,4 +1,5 @@
 import os
+import re
 import random
 import time
 import requests
@@ -33,8 +34,6 @@ class DeepWikiCrawler:
         self.file_utils = FileUtils()
         self.flowchart_processor = FlowchartProcessor()
         self.url_to_file_mapping = {}
-        # Ensure output directory exists
-        os.makedirs(self.output_dir, exist_ok=True)
 
     def crawl(self, url=None, current_depth=0):
         """
@@ -49,6 +48,14 @@ class DeepWikiCrawler:
         if current_depth > self.max_depth or url in self.visited_urls:
             return
         
+        # for deepwiki
+        out = "_".join(UrlUtils.get_path_with_slash(self.base_url).split("/")).strip("_")
+        if "deepwiki.com" in self.base_url:
+            self.output_dir = os.path.join("output", out) 
+        
+        # Ensure output directory exists
+        os.makedirs(self.output_dir, exist_ok=True)
+
         self.visited_urls.add(url)
         print(f"Crawling: {url} (Depth: {current_depth})")
         
@@ -102,16 +109,27 @@ class DeepWikiCrawler:
     def extract_internal_links(self, html_content):
         """从HTML内容中提取内部链接"""
         soup = BeautifulSoup(html_content, "html.parser")
+
         links = set()
-        for a in soup.find_all("a", href=True):
+
+        left_panel_class = (
+            r"border-r-border hidden max-h-screen border-r border-dashed py-7 pr-4 transition-[border-radius] md:sticky md:left-0 md:top-20 md:block md:h-[calc(100vh-82px)] md:w-64 md:flex-shrink-0 md:overflow-y-auto lg:py-9 xl:w-72"
+        )
+        left_panel = soup.find("div", class_=left_panel_class)
+        for a in left_panel.find_all("a", href=True):
             href = a["href"].strip()
+
             if not href or href.startswith("#"):
                 continue
-                
-            if self.url_utils.is_internal_link(href):
-                normalized_url = self.url_utils.normalize_url(href)
-                links.add(normalized_url)
-                
+            name = UrlUtils.get_path_with_slash(self.base_url)
+            if not href.startswith(name):
+                continue
+            
+            href= urljoin(self.url_utils.get_base_url(self.base_url), href)
+            # 处理相对链接
+            normalized_url = self.url_utils.normalize_url(href)
+            links.add(normalized_url)
+
         return links
 
     def convert_to_markdown(self, html_content, url):
@@ -139,6 +157,10 @@ class DeepWikiCrawler:
         
         # 转换为Markdown
         markdown_content = h.handle(html_content)
+
+        markdown_content = re.split(r'Menu', markdown_content, maxsplit=1, flags=re.MULTILINE)[1]
+
+        markdown_content = re.split(r'Auto-refresh not enabled yet', markdown_content, maxsplit=1, flags=re.MULTILINE)[0]
 
         # 添加元数据
         metadata = f"""---
