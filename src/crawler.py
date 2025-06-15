@@ -51,7 +51,7 @@ class DeepWikiCrawler:
         # for deepwiki
         out = "_".join(UrlUtils.get_path_with_slash(self.base_url).split("/")).strip("_")
         if "deepwiki.com" in self.base_url:
-            self.output_dir = os.path.join("output", out) 
+            self.output_dir = os.path.join("wiki_info", out) 
         
         # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
